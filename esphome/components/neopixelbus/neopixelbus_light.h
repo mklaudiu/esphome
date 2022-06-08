@@ -25,7 +25,8 @@ enum class ESPNeoPixelOrder {
   GRWB = 0b01001110,
   BGWR = 0b11010010,
   BGRW = 0b10010011,
-  BGR = 0b10010011,
+//  BGR = 0b10010011,
+  BGR = 0b11100111, 
   WGBR = 0b11011000,
   RGBW = 0b00011011,
   RGB = 0b00011011,
@@ -82,9 +83,17 @@ class NeoPixelBusLightOutputBase : public light::AddressableLight {
   }
 
   void write_state(light::LightState *state) override {
-    this->mark_shown_();
-    this->controller_->Dirty();
 
+    // call SetPixelColor to make sure we get any specific pixel processing done in neopixelbus library
+    for (int i = 0; i < this->size(); i++) {      
+      auto espColorView = this->get(i);
+      auto rgbColor = RgbColor(espColorView.get_red_raw(), espColorView.get_green_raw(), espColorView.get_blue_raw());
+      this->controller_->SetPixelColor(i, rgbColor);
+      //ESP_LOGD(TAG, "idx:%d r:%hd g:%hd b:%hd ", i, rgbColor.R, rgbColor.G, rgbColor.B);
+    }
+
+    this->mark_shown_();
+    //this->controller_->Dirty(); // already called by SetPixelColor
     this->controller_->Show();
   }
 
@@ -117,7 +126,7 @@ class NeoPixelRGBLightOutput : public NeoPixelBusLightOutputBase<T_METHOD, T_COL
 
  protected:
   light::ESPColorView get_view_internal(int32_t index) const override {  // NOLINT
-    uint8_t *base = this->controller_->Pixels() + 3ULL * index;
+    uint8_t *base = this->controller_->Pixels() + this->controller_->PixelSize() * index;
     return light::ESPColorView(base + this->rgb_offsets_[0], base + this->rgb_offsets_[1], base + this->rgb_offsets_[2],
                                nullptr, this->effect_data_ + index, &this->correction_);
   }
@@ -134,7 +143,7 @@ class NeoPixelRGBWLightOutput : public NeoPixelBusLightOutputBase<T_METHOD, T_CO
 
  protected:
   light::ESPColorView get_view_internal(int32_t index) const override {  // NOLINT
-    uint8_t *base = this->controller_->Pixels() + 4ULL * index;
+    uint8_t *base = this->controller_->Pixels() + this->controller_->PixelSize() * index;
     return light::ESPColorView(base + this->rgb_offsets_[0], base + this->rgb_offsets_[1], base + this->rgb_offsets_[2],
                                base + this->rgb_offsets_[3], this->effect_data_ + index, &this->correction_);
   }
